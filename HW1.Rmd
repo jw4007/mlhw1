@@ -1,0 +1,90 @@
+---
+title: "HW1"
+output: html_document
+date: "2023-01-19"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(psych)
+
+hw1_data = read.csv("./bcdata_Assignment1.csv") %>% janitor::clean_names()
+```
+
+## Q1
+Construct a table providing summaries of the quantitative features of the dataset.
+Summaries should include the mean, median, minimum value, and maximum value. If you are unable to construct a formatted table within R, you can print raw output, but then comment the output to identify the answer that was requested.
+```{r}
+hw1_data %>% 
+  describe() %>%
+  select(mean, median, min, max)
+```
+
+## Q2
+Recode BMI into the WHO-defined categories below
+Severely underweight - BMI less than 16.5kg/m^2
+Underweight - BMI under 18.5 kg/m^2
+Normal weight - BMI greater than or equal to 18.5 to 24.9 kg/m^2
+Overweight – BMI greater than or equal to 25 to 29.9 kg/m^2
+Obesity class I – BMI 30 to 34.9 kg/m^2
+Obesity class II – BMI 35 to 39.9 kg/m^2
+Obesity class III – BMI greater than or equal to 40 kg/m^2
+```{r}
+hw1_data = hw1_data %>%
+  mutate(bmi = round(bmi, digits = 1)) %>%
+  mutate(bmi_class = case_when(bmi <16.4 ~ "severely underweight",
+          bmi <= 18.4 ~ "underweight",
+          bmi <= 24.9 ~ "normal weight",
+          bmi <= 29.9 ~ "overweight",
+          bmi <= 34.9 ~ "obesity class I",
+          bmi <= 39.9 ~ "obesity class II",
+          bmi >= 40 ~ "obesity class III"))
+```
+
+- New variable "bmi_class" was created to indicate the BMI categories.
+
+## Q3
+Create a bar chart showing the proportion of breast cancer cases and controls within each BMI category. ( That is, the graph should clearly show, what % of each BMI category are cases and what % are controls)
+
+```{r}
+plot_data = hw1_data %>% 
+  mutate(classification = ifelse(classification == 1, "controls", "cases")) %>% 
+  group_by(bmi_class, classification) %>% 
+  tally() %>% 
+  mutate(percent = n/sum(n))
+
+bar_chart = plot_data %>% 
+  ggplot(aes(x = bmi_class, y = n, fill = classification)) + 
+  geom_bar(stat = "identity", position = "fill") +
+  geom_text(aes(label = paste0(sprintf("%1.1f", percent*100),"%")),
+            position = position_fill(vjust = 0.5), colour = "white", size = 4) +
+  labs(x = "BMI category", y = "Percentage")
+
+bar_chart
+```
+
+## Q4
+Construct a logistic regression model using breast cancer classification as the outcome and glucose, HOMA-IR, leptin, BMI (continuous) and age as the independent variables.
+Fill in the beta estimate and 95% confidence interval associated with a 1-unit change in HOMA-IR
+```{r}
+hw1_data = hw1_data %>% 
+  mutate(classification = ifelse(classification == 1, 0,1)) %>%
+  mutate(classification = as.numeric(classification))
+
+logit = glm(classification ~ glucose + homa + leptin + bmi + age, data = hw1_data, family = "binomial")
+cbind(beta = coef(logit), confint(logit))
+```
+
+-The beta estimate and 95% confidence interval associated with a 1-unit change in HOMA-IR are -0.27 and (-0.64, 0.03) from the logistic model constructed.
+
+## Q5
+Construct a linear regression model using insulin as the outcome and BMI (continuous), age, and glucose as the independent variables.
+Fill in the beta estimate and 95% confidence interval associated with a 1-unit change in age.
+```{r}
+linear = lm(insulin ~ bmi + age + glucose, data = hw1_data)
+
+cbind(beta = coef(linear), confint(linear))
+```
+
+- The beta estimate and 95% confidence interval associated with a 1-unit change in age are -0.05 and (-0.16, 0.5) from the linear regression model constructed.
